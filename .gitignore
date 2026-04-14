@@ -10,3 +10,6 @@ coverage/
 server/.env
 !.env.example
 !server/.env.example
+
+# SQLite database (gerado em runtime)
+server/data/
