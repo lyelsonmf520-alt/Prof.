@@ -1,0 +1,15 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env
+.env.local
+.env.*.local
+server/.env
+!.env.example
+!server/.env.example
+
+# SQLite database (gerado em runtime)
+server/data/
