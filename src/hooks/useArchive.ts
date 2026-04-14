@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { getCollection, addToCollection, deleteFromCollection } from '@/services/firestore.service'
+import { apiFetch } from '@/services/api.service'
 import type { ArchivedMaterial, Note } from '@/types/archive.types'
 
 export function useArchive() {
@@ -10,13 +10,17 @@ export function useArchive() {
 
   const fetch = useCallback(async () => {
     if (!currentUser) return
-    const data = await getCollection<ArchivedMaterial>(currentUser.uid, 'materials')
-    const parsed = data.map((m) => ({
-      ...m,
-      createdAt: m.createdAt instanceof Date ? m.createdAt : (m.createdAt as any)?.toDate?.() || new Date(),
-    }))
-    setMaterials(parsed)
-    setLoading(false)
+    try {
+      const data = await apiFetch<Array<ArchivedMaterial & { createdAt: number }>>('/api/data/materials')
+      setMaterials(
+        data.map((m) => ({
+          ...m,
+          createdAt: new Date(m.createdAt),
+        }))
+      )
+    } finally {
+      setLoading(false)
+    }
   }, [currentUser])
 
   useEffect(() => { fetch() }, [fetch])
@@ -24,15 +28,25 @@ export function useArchive() {
   const saveMaterial = async (
     data: Omit<ArchivedMaterial, 'id' | 'createdAt'>
   ): Promise<string> => {
-    if (!currentUser) throw new Error('Not authenticated')
-    const id = await addToCollection(currentUser.uid, 'materials', data)
-    setMaterials((prev) => [{ id, createdAt: new Date(), ...data }, ...prev])
-    return id
+    const res = await apiFetch<{ id: string }>('/api/data/materials', {
+      method: 'POST',
+      body: JSON.stringify({
+        type: data.type,
+        title: data.title,
+        topic: data.topic,
+        classId: data.classId,
+        className: data.className,
+        content: data.content,
+        slidesJson: data.slidesJson,
+        tags: data.tags,
+      }),
+    })
+    setMaterials((prev) => [{ id: res.id, createdAt: new Date(), ...data }, ...prev])
+    return res.id
   }
 
   const deleteMaterial = async (id: string) => {
-    if (!currentUser) return
-    await deleteFromCollection(currentUser.uid, 'materials', id)
+    await apiFetch(`/api/data/materials/${id}`, { method: 'DELETE' })
     setMaterials((prev) => prev.filter((m) => m.id !== id))
   }
 
@@ -46,27 +60,26 @@ export function useNotes() {
 
   const fetch = useCallback(async () => {
     if (!currentUser) return
-    const data = await getCollection<Note>(currentUser.uid, 'notes')
-    const parsed = data.map((n) => ({
-      ...n,
-      createdAt: n.createdAt instanceof Date ? n.createdAt : (n.createdAt as any)?.toDate?.() || new Date(),
-    }))
-    setNotes(parsed)
-    setLoading(false)
+    try {
+      const data = await apiFetch<Array<Note & { createdAt: number }>>('/api/data/notes')
+      setNotes(data.map((n) => ({ ...n, createdAt: new Date(n.createdAt) })))
+    } finally {
+      setLoading(false)
+    }
   }, [currentUser])
 
   useEffect(() => { fetch() }, [fetch])
 
   const addNote = async (body: string) => {
-    if (!currentUser) return
-    const data = { body, pinned: false }
-    const id = await addToCollection(currentUser.uid, 'notes', data)
-    setNotes((prev) => [{ id, body, pinned: false, createdAt: new Date() }, ...prev])
+    const res = await apiFetch<{ id: string }>('/api/data/notes', {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    })
+    setNotes((prev) => [{ id: res.id, body, pinned: false, createdAt: new Date() }, ...prev])
   }
 
   const deleteNote = async (id: string) => {
-    if (!currentUser) return
-    await deleteFromCollection(currentUser.uid, 'notes', id)
+    await apiFetch(`/api/data/notes/${id}`, { method: 'DELETE' })
     setNotes((prev) => prev.filter((n) => n.id !== id))
   }
 

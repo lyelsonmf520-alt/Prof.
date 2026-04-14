@@ -1,49 +1,30 @@
 import { type Request, type Response, type NextFunction } from 'express'
-import admin from 'firebase-admin'
+import jwt from 'jsonwebtoken'
 
-// Initialize Firebase Admin (only once)
-if (!admin.apps.length) {
-  try {
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      admin.initializeApp({ credential: admin.credential.applicationDefault() })
-    } else if (process.env.FIREBASE_PROJECT_ID) {
-      // For development without service account — skip auth or use project ID
-      admin.initializeApp({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-      })
-    }
-  } catch (err) {
-    console.warn('Firebase Admin not fully initialized:', err)
-  }
-}
+const JWT_SECRET = process.env.JWT_SECRET || 'prof-raposo-dev-secret-change-in-production'
 
 export interface AuthRequest extends Request {
   uid?: string
 }
 
-export async function authMiddleware(
+export function authMiddleware(
   req: AuthRequest,
   res: Response,
   next: NextFunction
-): Promise<void> {
-  const token = req.headers.authorization?.split('Bearer ')[1]
+): void {
+  const authHeader = req.headers.authorization
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
 
   if (!token) {
-    // In development, allow unauthenticated requests
-    if (process.env.NODE_ENV !== 'production') {
-      req.uid = 'dev-user'
-      next()
-      return
-    }
-    res.status(401).json({ error: 'Unauthorized' })
+    res.status(401).json({ error: 'Token de autenticação não fornecido' })
     return
   }
 
   try {
-    const decoded = await admin.auth().verifyIdToken(token)
+    const decoded = jwt.verify(token, JWT_SECRET) as { uid: string }
     req.uid = decoded.uid
     next()
   } catch {
-    res.status(401).json({ error: 'Invalid token' })
+    res.status(401).json({ error: 'Token inválido ou expirado' })
   }
 }

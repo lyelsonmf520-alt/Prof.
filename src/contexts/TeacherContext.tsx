@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '@/config/firebase'
 import { useAuth } from './AuthContext'
+import { apiFetch } from '@/services/api.service'
 import type { TeacherProfile } from '@/types/teacher.types'
 
 interface TeacherContextValue {
@@ -13,48 +12,47 @@ interface TeacherContextValue {
 const TeacherContext = createContext<TeacherContextValue | null>(null)
 
 export function TeacherProvider({ children }: { children: ReactNode }) {
-  const { currentUser } = useAuth()
+  const { currentUser, token } = useAuth()
   const [profile, setProfile] = useState<TeacherProfile | null>(null)
   const [loadingProfile, setLoadingProfile] = useState(true)
 
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser || !token) {
       setProfile(null)
       setLoadingProfile(false)
       return
     }
 
-    const ref = doc(db, 'users', currentUser.uid, 'data', 'profile')
-    getDoc(ref).then((snap) => {
-      if (snap.exists()) {
-        const data = snap.data()
+    apiFetch<{ uid: string; name: string; subject: string; school: string; avatarUrl: string | null }>('/api/data/profile')
+      .then((data) => {
         setProfile({
-          uid: currentUser.uid,
-          name: data.name || currentUser.displayName || '',
+          uid: data.uid,
+          name: data.name || currentUser.name || '',
           subject: data.subject || '',
           school: data.school || '',
-          avatarUrl: data.avatarUrl || currentUser.photoURL || null,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        })
-      } else {
-        // Initialize profile from Google data
-        const initial: Omit<TeacherProfile, 'uid'> = {
-          name: currentUser.displayName || '',
-          subject: '',
-          school: '',
-          avatarUrl: currentUser.photoURL || null,
+          avatarUrl: data.avatarUrl || null,
           createdAt: new Date(),
-        }
-        setProfile({ uid: currentUser.uid, ...initial })
-      }
-      setLoadingProfile(false)
-    })
-  }, [currentUser])
+        })
+      })
+      .catch(() => {
+        // Fallback to auth user data
+        setProfile({
+          uid: currentUser.uid,
+          name: currentUser.name || '',
+          subject: currentUser.subject || '',
+          school: currentUser.school || '',
+          avatarUrl: currentUser.avatarUrl || null,
+          createdAt: new Date(),
+        })
+      })
+      .finally(() => setLoadingProfile(false))
+  }, [currentUser, token])
 
   const updateProfile = async (data: Partial<Omit<TeacherProfile, 'uid' | 'createdAt'>>) => {
-    if (!currentUser) return
-    const ref = doc(db, 'users', currentUser.uid, 'data', 'profile')
-    await setDoc(ref, { ...data, updatedAt: serverTimestamp() }, { merge: true })
+    await apiFetch('/api/data/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
     setProfile((prev) => (prev ? { ...prev, ...data } : prev))
   }
 

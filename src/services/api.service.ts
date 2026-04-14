@@ -1,23 +1,21 @@
-import { auth } from '@/config/firebase'
 import { API_BASE_URL } from '@/config/constants'
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const user = auth.currentUser
-  if (!user) return {}
-  const token = await user.getIdToken()
-  return { Authorization: `Bearer ${token}` }
+const TOKEN_KEY = 'prof_raposo_token'
+
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem(TOKEN_KEY)
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const authHeaders = await getAuthHeaders()
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...authHeaders,
+      ...getAuthHeaders(),
       ...(options.headers as Record<string, string>),
     },
   })
@@ -35,14 +33,12 @@ export async function apiStream(
   onDone: () => void,
   onError: (err: Error) => void
 ): Promise<void> {
-  const authHeaders = await getAuthHeaders()
-
   try {
     const res = await fetch(`${API_BASE_URL}${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders,
+        ...getAuthHeaders(),
       },
       body: JSON.stringify(body),
     })
@@ -67,7 +63,8 @@ export async function apiStream(
             onDone()
             return
           }
-          onChunk(data)
+          // Restore newlines encoded as Unicode line separator
+          onChunk(data.replace(/\u2028/g, '\n'))
         }
       }
     }
@@ -81,14 +78,13 @@ export async function apiUpload(
   path: string,
   file: File
 ): Promise<{ text: string }> {
-  const authHeaders = await getAuthHeaders()
-  const { Authorization } = authHeaders
+  const token = localStorage.getItem(TOKEN_KEY)
   const formData = new FormData()
   formData.append('file', file)
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
-    headers: Authorization ? { Authorization } : {},
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   })
 

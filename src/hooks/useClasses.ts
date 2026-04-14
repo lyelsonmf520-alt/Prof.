@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { getCollection, addToCollection, updateInCollection, deleteFromCollection } from '@/services/firestore.service'
+import { apiFetch } from '@/services/api.service'
 import type { TeacherClass } from '@/types/teacher.types'
 
 export function useClasses() {
@@ -10,28 +10,34 @@ export function useClasses() {
 
   const fetch = useCallback(async () => {
     if (!currentUser) return
-    const data = await getCollection<TeacherClass>(currentUser.uid, 'classes', [])
-    setClasses(data)
-    setLoading(false)
+    try {
+      const data = await apiFetch<TeacherClass[]>('/api/data/classes')
+      setClasses(data)
+    } finally {
+      setLoading(false)
+    }
   }, [currentUser])
 
   useEffect(() => { fetch() }, [fetch])
 
   const addClass = async (data: Omit<TeacherClass, 'id'>) => {
-    if (!currentUser) return
-    const id = await addToCollection(currentUser.uid, 'classes', data)
-    setClasses((prev) => [...prev, { id, ...data }])
+    const res = await apiFetch<{ id: string }>('/api/data/classes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    setClasses((prev) => [...prev, { id: res.id, ...data }])
   }
 
   const updateClass = async (id: string, data: Partial<TeacherClass>) => {
-    if (!currentUser) return
-    await updateInCollection(currentUser.uid, 'classes', id, data)
+    await apiFetch(`/api/data/classes/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
     setClasses((prev) => prev.map((c) => (c.id === id ? { ...c, ...data } : c)))
   }
 
   const deleteClass = async (id: string) => {
-    if (!currentUser) return
-    await deleteFromCollection(currentUser.uid, 'classes', id)
+    await apiFetch(`/api/data/classes/${id}`, { method: 'DELETE' })
     setClasses((prev) => prev.filter((c) => c.id !== id))
   }
 

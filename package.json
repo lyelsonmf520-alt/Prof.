@@ -11,8 +11,6 @@
     "dev:all": "concurrently \"npm run dev\" \"npm run server\""
   },
   "dependencies": {
-    "@google/genai": "^1.0.0",
-    "firebase": "^10.12.0",
     "lucide-react": "^0.400.0",
     "motion": "^11.0.0",
     "react": "^19.0.0",

@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express'
 import multer from 'multer'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { extractTextFromPDF } from '../services/pdf.service'
-import { describeImage } from '../services/gemini.service'
+import { describeImage } from '../services/claude.service'
 
 export const uploadRoutes = Router()
 
@@ -32,8 +32,8 @@ uploadRoutes.post('/image', authMiddleware, upload.single('file'), async (req: R
     return
   }
 
-  if (!process.env.GEMINI_API_KEY) {
-    res.status(503).json({ error: 'GEMINI_API_KEY not configured' })
+  if (!process.env.ANTHROPIC_API_KEY) {
+    res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured' })
     return
   }
 

@@ -1,74 +1,56 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  getDoc,
-  addDoc,
-  setDoc,
-  deleteDoc,
-  updateDoc,
-  query,
-  orderBy,
-  serverTimestamp,
-  type DocumentData,
-  type QueryConstraint,
-} from 'firebase/firestore'
-import { db } from '@/config/firebase'
+// Firestore has been replaced with SQLite-backed REST API.
+// This module provides REST wrappers with the same signature
+// as the original Firestore service so hooks don't need to change structure.
 
-export function userCol(uid: string, ...segments: string[]) {
-  return collection(db, 'users', uid, ...segments)
-}
+import { apiFetch } from './api.service'
 
-export function userDoc(uid: string, ...segments: string[]) {
-  return doc(db, 'users', uid, ...segments)
-}
-
-export async function getCollection<T extends DocumentData>(
-  uid: string,
-  colName: string,
-  constraints: QueryConstraint[] = []
+export async function getCollection<T>(
+  _uid: string,
+  colName: string
 ): Promise<(T & { id: string })[]> {
-  const col = userCol(uid, colName)
-  const q = constraints.length > 0 ? query(col, ...constraints) : query(col, orderBy('createdAt', 'desc'))
-  const snap = await getDocs(q)
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as T & { id: string }))
+  return apiFetch<(T & { id: string })[]>(`/api/data/${colName}`)
 }
 
 export async function addToCollection(
-  uid: string,
+  _uid: string,
   colName: string,
-  data: DocumentData
+  data: Record<string, unknown>
 ): Promise<string> {
-  const col = userCol(uid, colName)
-  const ref = await addDoc(col, { ...data, createdAt: serverTimestamp() })
-  return ref.id
+  const res = await apiFetch<{ id: string }>(`/api/data/${colName}`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+  return res.id
 }
 
 export async function updateInCollection(
-  uid: string,
+  _uid: string,
   colName: string,
   docId: string,
-  data: DocumentData
+  data: Record<string, unknown>
 ): Promise<void> {
-  const ref = userDoc(uid, colName, docId)
-  await updateDoc(ref, data)
+  await apiFetch(`/api/data/${colName}/${docId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
 }
 
 export async function deleteFromCollection(
-  uid: string,
+  _uid: string,
   colName: string,
   docId: string
 ): Promise<void> {
-  const ref = userDoc(uid, colName, docId)
-  await deleteDoc(ref)
+  await apiFetch(`/api/data/${colName}/${docId}`, { method: 'DELETE' })
 }
 
 export async function setDocument(
-  uid: string,
+  _uid: string,
   colName: string,
   docId: string,
-  data: DocumentData
+  data: Record<string, unknown>
 ): Promise<void> {
-  const ref = userDoc(uid, colName, docId)
-  await setDoc(ref, { ...data, updatedAt: serverTimestamp() }, { merge: true })
+  await apiFetch(`/api/data/${colName}/${docId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
 }

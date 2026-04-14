@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { authMiddleware } from '../middleware/auth.middleware'
-import { streamGenerateText, generateJSON } from '../services/gemini.service'
+import { streamGenerateText, generateJSON } from '../services/claude.service'
 
 export const aiRoutes = Router()
 
@@ -12,8 +12,8 @@ aiRoutes.post('/generate', authMiddleware, async (req: Request, res: Response) =
     return
   }
 
-  if (!process.env.GEMINI_API_KEY) {
-    res.status(503).json({ error: 'GEMINI_API_KEY not configured' })
+  if (!process.env.ANTHROPIC_API_KEY) {
+    res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured' })
     return
   }
 
